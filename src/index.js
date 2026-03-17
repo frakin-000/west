@@ -77,6 +77,84 @@ class Trasher extends Dog {
     }
 }
 
+class Gatling extends Creature {
+    constructor() {
+        super('Гатлинг', 6);
+    }
+
+    attack(gameContext, continuation) {
+        const taskQueue = new TaskQueue();
+        const { oppositePlayer } = gameContext;
+
+        taskQueue.push(onDone => this.view.showAttack(onDone));
+
+        for (const card of oppositePlayer.table) {
+            taskQueue.push(onDone => {
+                if (!card) {
+                    onDone();
+                    return;
+                }
+                this.dealDamageToCreature(2, card, gameContext, onDone);
+            });
+        }
+
+        taskQueue.continueWith(continuation);
+    }
+}
+
+class Lad extends Dog {
+    constructor() {
+        super();
+        this.name = 'Браток';
+        this.maxPower = 2;
+        this.currentPower = 2;
+    }
+
+    static getInGameCount() {
+        return this.inGameCount || 0;
+    }
+
+    static setInGameCount(value) {
+        this.inGameCount = value;
+    }
+
+    static getBonus() {
+        const count = this.getInGameCount();
+        return count * (count + 1) / 2;
+    }
+
+    doAfterComingIntoPlay(gameContext, continuation) {
+        const ctor = this.constructor;
+        ctor.setInGameCount(ctor.getInGameCount() + 1);
+        continuation();
+    }
+
+    doBeforeRemoving(continuation) {
+        const ctor = this.constructor;
+        ctor.setInGameCount(Math.max(ctor.getInGameCount() - 1, 0));
+        continuation();
+    }
+
+    modifyDealedDamageToCreature(value, toCard, gameContext, continuation) {
+        continuation(value + this.constructor.getBonus());
+    }
+
+    modifyTakenDamage(value, fromCard, gameContext, continuation) {
+        continuation(value - this.constructor.getBonus());
+    }
+
+    getDescriptions() {
+        const descriptions = super.getDescriptions();
+        if (
+            Lad.prototype.hasOwnProperty('modifyDealedDamageToCreature')
+            || Lad.prototype.hasOwnProperty('modifyTakenDamage')
+        ) {
+            descriptions.unshift('Чем их больше, тем они сильнее');
+        }
+        return descriptions;
+    }
+}
+
 
 // Колода Шерифа, нижнего игрока.
 const seriffStartDeck = [
@@ -88,7 +166,8 @@ const seriffStartDeck = [
 
 // Колода Бандита, верхнего игрока.
 const banditStartDeck = [
-    new Trasher(),
+    new Lad(),
+    new Lad(),
 ];
 
 
